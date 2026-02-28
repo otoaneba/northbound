@@ -91,7 +91,7 @@ Users connect their **US bank account via Plaid** and the app **automatically de
 - [ ] `name`
 - [ ] `official_name`
 - [ ] `type`
-- [ ] `subtype`
+- [ ] `subtype` (checking, savings, etc.)
 - [ ] `current_balance (nullable) `
 - [ ] `available_balance (nullable)`
 - [ ] `is_active (default true)`
@@ -115,39 +115,73 @@ Users connect their **US bank account via Plaid** and the app **automatically de
 
 # Data Flow
 
-## Flow: Sign Up
+## Auth Flow
+- `POST /auth/signup`: create `User` , issue JWT (login right after signup). 
+- `POST /auth/login`: verify `password_hash` , issue JWT.
 
-Trigger:
-User clicks "Sign up"
+## Plaid Item Flow
+### 1. Create link_token to authenticate with Plaid Link:
+1. `POST` `/plaid/create_link_token` (auth required): returns link_token.
+2. Use `link_token` to open Link (UI module), which asks user for their bank credentials.
+3. Link provides `public_token` via onSuccess callback.
 
-Frontend:
-Calls POST /auth/signup
+### 2. Exchange public_token with Plaid Link exchange:
+1. `POST /plaid/exchange_public_token`: exchange `public_token` for permanent `access_token`.
+2. Encrypt token and insert/update PlaidItem (`plaid_item_id` UNIQUE).
+3. Returns `{ itemId, plaid_item_id }`
 
-Backend route:
-Creates User
+### 3. Get account information
+- `POST /plaid/items/:itemId/fetch-accounts` (auth required)
+- Reads/decrypts PlaidItem access token.
+- Calls Plaid accounts endpoint.
+- Upserts BankAccount rows (plaid_account_id unique).
+- Marks missing prior accounts as is_active = false.
+- Returns `{ accountsLinked, accountsUpdated }.`
+### 4. Transaction sync (shared worker/service):
+- `POST /plaid/items/:itemId/sync-transactions` (auth required)
+- Requires accounts already fetched.
+- Uses PlaidItem.cursor and transactions sync.
+- Read/decrypt access token; call Plaid transactions sync endpoint with stored cursor.
+- For each added transaction: upsert Transaction by plaid_transaction_id.
+- For each modified transaction: update mapped Transaction.
+- For each removed transaction: set removed_at (soft-delete semantics).
+- Persist new cursor on successful page completion.
+
+### 5. Webhook-driven incremental sync
+   - Plaid sends `POST /plaid/webhook` when item transactions update; 
+   - backend fast-acks 200, dedupes enqueue by plaid_item_id, runs step 4 in background.  
+==Why: Near-real-time updates instead of my backend constantly polling Plaid. Better performance.==
+    
+### 6. Subscription detection after sync  
+- After successful sync, group transactions by:
+	- normalized merchant key
+	- detect recurring pattern (~30 days, >=3 hits)
+	- upsert Subscription
+	- create AlertEvent for new/price increase.  
+Persisted derived data gives stable dashboard numbers and supports historical alerts.
+    
+### 7. Dashboard/read APIs
+ - `GET /dashboard/summary`
+ - `GET /subscriptions`
+ - `GET /transactions`
+ - Call all these to read from persisted tables.  
+Fast responses, deterministic UX, and no expensive recalculation on every request.
+    
+###  8. Failure handling
+- If Plaid token invalid, set PlaidItem.status = needs_reauth; do not advance cursor on failed sync; allow manual retry endpoint.  
+Prevent data corruption and make operational recovery explicit.
 
 
-Service Layer:
-
-
-
-## Flow: Connect Bank  
-  
-Trigger:  
-User clicks "Connect Bank"  
-  
-Frontend:  
-Calls POST /plaid/create-link-token  
-  
-Backend Route:  
-Creates link_token via Plaid API  
-  
-Service Layer:  
-- Calls plaid.linkTokenCreate()  
-- Returns link_token  
-  
-Database Changes:  
-None  
-  
-Response:  
-{ link_token }
+> [!NOTE]
+> cursor is Plaid’s checkpoint for transaction sync.
+> - Think of it as “last processed position” for one PlaidItem.
+> - On each sync call, you send Plaid the current cursor.
+> - Plaid returns changes since that cursor (added, modified, removed) plus a next_cursor.
+>  
+>  “Advancing cursor” means saving that next_cursor to your DB after a successful sync batch.
+>  
+>  Why it matters:
+>  1. No duplicates: next run starts where previous ended.
+>  2. Incremental updates: you fetch only new changes, not full history.
+>  3. Safe retries: if sync fails, keep old cursor and retry the same window.
+>  
