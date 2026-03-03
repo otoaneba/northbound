@@ -27,9 +27,20 @@ I often lose track of my online subscriptions and will sometimes forget that I e
 - As a user, I want automatic detections for any updates to my recurring charges so that I am aware of any subscription updates.
 - As a user, I want to be able to categorize each expenses so that I can see a breakdown of my monthly spending
 - As a user, I want to see total spending per category
+- As a user, I want to upload a CSV export from my bank so that I can use the app without connecting my bank account directly
 
 ## MVP
 Users connect their **US bank account via Plaid** and the app **automatically detects recurring subscriptions**, showing a **monthly cost breakdown** and **basic alerts**.
+
+##################################################################
+> !NOTE **Change of Plan — Sandbox Only**
+> - After evaluating costs, the Production Plaid plan is too expensive for personal use. This build will use Plaid Sandbox only, meaning:
+> - No real bank connections — test credentials and synthetic data only
+> - CSV upload (see section below) is the primary path for personal use
+> - The full Plaid Production flow documented above is preserved for reference, in case this is developed for real users in the future
+> - Bypass Link via /sandbox/public_token/create during development; test webhooks via /sandbox/item/fire_webhook
+##################################################################
+
 ### Login / Signup
 - [ ] Email/password (no OAuth for MVP)
 - [ ] Session with JWT
@@ -54,6 +65,13 @@ Users connect their **US bank account via Plaid** and the app **automatically de
 - [ ] Subscription list (merchant + avg amount + frequency)
 - [ ] Basic “next expected charge date” (best-effort)
 - [ ] categorized subscriptions (optional: visual chart)
+
+### CSV Upload (alternative to Plaid)
+- [ ] User can upload a CSV file exported from their bank
+- [ ] Backend parses and validates required columns (`date`, `amount`, `merchant_name` / `name`)
+- [ ] Parsed rows are normalized and upserted as Transactions (keyed by `date + amount + name` to avoid duplicates on re-upload)
+- [ ] Triggers the same subscription detection pipeline as Plaid sync
+- [ ] Clear error feedback for malformed files or missing columns
 
 ### Alerts (basic)
 - [ ] Simple alert rule (e.g., “new subscription detected” or “price increased”)
@@ -101,7 +119,9 @@ Users connect their **US bank account via Plaid** and the app **automatically de
 #### Transaction (INDEX bankAccountID and date)
 - [ ] `id (UUID, OK)`
 - [ ] `bankAccountID (FK -> BankAccount.id, On DELETE CASCADE)`
-- [ ] `plaid_transaction_id (UNIQUE)`
+- [ ] `plaid_transaction_id (UNIQUE, NULLABLE)` — null for CSV-imported rows
+- [ ] `csv_row_hash (UNIQUE, NULLABLE)` — SHA of `date + amount + name` for CSV dedup; null for Plaid rows
+- [ ] `source (enum: 'plaid' | 'csv')`
 - [ ] `date`
 - [ ] `amount`
 - [ ] `merchant_name`
@@ -167,6 +187,23 @@ Persisted derived data gives stable dashboard numbers and supports historical al
  - Call all these to read from persisted tables.  
 Fast responses, deterministic UX, and no expensive recalculation on every request.
     
+## CSV Upload Flow
+### 1. Upload and parse
+- `POST /csv/upload` (auth required, `multipart/form-data`)
+- Backend receives file, parses CSV (e.g., with `papaparse` or `csv-parse`).
+- Validates required columns: `date`, `amount`, `name` (and optionally `merchant_name`, `category`).
+- Returns validation error with row details if columns are missing or values are unparseable.
+
+### 2. Normalize and upsert
+- Map CSV columns to Transaction shape (normalize date to ISO, amount to positive float).
+- Compute `csv_row_hash = SHA256(date + amount + name)` per row.
+- Upsert Transactions by `csv_row_hash` — safe to re-upload the same file.
+- Set `source = 'csv'`, `plaid_transaction_id = null`, `pending = false`.
+- Associate rows with a synthetic BankAccount for CSV imports (one per user, created on first upload).
+
+### 3. Trigger detection
+- After upsert, run the same subscription detection pipeline (step 6 of Plaid flow).
+
 ###  8. Failure handling
 - If Plaid token invalid, set PlaidItem.status = needs_reauth; do not advance cursor on failed sync; allow manual retry endpoint.  
 Prevent data corruption and make operational recovery explicit.
@@ -184,4 +221,185 @@ Prevent data corruption and make operational recovery explicit.
 >  1. No duplicates: next run starts where previous ended.
 >  2. Incremental updates: you fetch only new changes, not full history.
 >  3. Safe retries: if sync fails, keep old cursor and retry the same window.
->  
+
+
+# Public APIs / Interfaces / Types
+
+1. POST /auth/signup
+    - Request: { email, password, name? }
+    - Response: { userId, token }
+2. POST /auth/login
+    - Request: { email, password }
+    - Response: { token }
+3. POST /plaid/create-link-token
+    - Response: { link_token }
+4. POST /plaid/exchange-public-token
+    - Request: { public_token, institution? }
+    - Response: { itemId, accountsLinked }
+5. POST /plaid/webhook
+    - Request: Plaid webhook payload
+    - Response: 200 fast-ack
+6. POST /sync/plaid-item/:id (internal/admin/manual retry)
+    - Response: { synced, added, modified, removed }
+7. POST /csv/upload
+    - Request: multipart/form-data with `file` field (CSV)
+    - Response: { imported, skipped, errors: [{ row, message }] }
+8. GET /subscriptions
+    - Response item: { id, merchant, avgAmount, frequency, lastChargeDate, nextExpectedDate, status }
+9. GET /dashboard/summary
+    - Response: { month, totalSubscriptionCost, activeSubscriptions, newSinceLastMonth, priceIncreases }
+
+# Plaid API Endpoints (Production and Sandbox)
+
+## Production
+### Required (core flow)
+
+| Endpoint                    | Purpose                                                                             |
+| --------------------------- | ----------------------------------------------------------------------------------- |
+| /link/token/create          | Create a link token for the Plaid Link UI so users can connect their bank           |
+| /item/public_token/exchange | Exchange the public token from Link (UI module) for an access_token (then store it) |
+| /transactions/sync          | Fetch and sync transactions (cursor-based, incremental) for subscription detection  |
+
+---
+### Bank Accounts
+
+| Endpoint              | Purpose                                                              |
+| --------------------- | -------------------------------------------------------------------- |
+| /accounts/balance/get | Get account balances and metadata (name, mask, type)                 |
+| /item/get             | Get item status and institution_id (e.g. for re-auth, status checks) |
+
+---
+
+### Optional for MVP
+
+| Endpoint                | Purpose                                                                        |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| /institutions/get_by_id | Get institution name/logo for display                                          |
+| /auth/get               | Only if you need routing/account numbers (e.g. ACH)                            |
+| Webhooks                | Receive events like TRANSACTIONS_ADDED, ITEM_LOGIN_REQUIRED instead of polling |
+
+### Sandbox
+
+| Endpoint                     | Purpose                                                                                  |
+| ---------------------------- | ---------------------------------------------------------------------------------------- |
+| /sandbox/public_token/create | Bypass Link UI — generate a public_token directly via API for dev/testing                |
+| /sandbox/item/fire_webhook   | Manually trigger webhooks (e.g., TRANSACTIONS_ADDED) since they don't fire automatically |
+| /sandbox/item/reset_login    | Force an Item into ITEM_LOGIN_REQUIRED to test your failure handling (step 8)            |
+
+---
+
+### Summary
+
+
+# Auth Strategy
+## Architecture
+- use middleware for authentication and authorization
+- /plaid /sync, subscriptions/, and dashboard/ routes all protected with middleware
+- both long in and signup returns JWT. Don't use middleware as these routes hand over the JWT token
+- app -> **middleware (if needed)** -> controller -> service -> model
+
+## Login / Sing up 
+### controller 
+- keep thin.
+- Propagate error to error handler.
+- Request validation ?
+
+### Service
+- Business logic AND validation
+- provide JWT token
+- throws:
+	- AlreadyExistsError
+	- ValidationError
+	- AuthenticationError
+
+### Model
+- Keep thin
+- Only handle SQL 
+- throws:
+	- QueryError
+
+# Error Handling Strategy
+## Flow
+Model throws
+   v
+service throws (does not catch nor handle model error)
+   v
+controller does not throw (catches but does not handle)
+   v
+errorHandler handles and returns 
+## Classes 
+- AppError extends Error
+	- takes in (message, statusCode, details ={} )
+	- sub classes:
+		- NotFoundError (thrown by service)
+		- QueryError (thrown by Model)
+		- ValidationError (thrown by service)
+		- AuthenticationError (thrown by middleware)
+		- ForbiddenError (thrown by service)
+		- AlreadyExistsError (thrown by service)
+
+
+# DB 
+- Start with postgreSQL locally first
+- then migrate to Supabase
+
+
+
+# Backend Folder Architecture
+```
+src/
+	app.js
+	server.js
+	config/
+		db.js
+		env.js
+	middleware/
+		auth.js
+		errorHandler.js
+	routes/
+		auth.js
+		plaid.js
+		csv.js
+		subscriptions.js
+		dashboard.js
+	models/
+		user.js,
+		plaidItem.js
+		bankAccount.js
+		transaction.js
+		subscription.js
+	services/
+		auth.js
+		plaid.js
+		csv.js
+		subscriptionDetection.js
+	controllers/
+		auth.js
+		plaid.js
+		csv.js
+		subscriptions.js
+		dashboard.js
+	utils/
+		errors.js
+	tests/
+		services/
+		controllers/
+		utils/
+```
+
+
+# Core UI Screens
+
+1. **Dashboard**
+	1. categorized transactions in a chart
+	2. total balance and total spent (per month)
+	3. list of transactions
+2. **Subscriptions**
+3. **Profile**
+4. **Login/Signup**
+5. **Menu**
+	1. Side menu that can be minimized
+	2. includes clickable pages:
+		1. Profile
+		2. Dashboard
+		3. Subscriptions
