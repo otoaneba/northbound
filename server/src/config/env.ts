@@ -26,6 +26,6 @@ export const env: Env = {
   JWT_SECRET: requireEnv('JWT_SECRET'),
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN ?? '7d',
   PLAID_CLIENT_ID: requireEnv('PLAID_CLIENT_ID'),
-  PLAID_SECRET: requireEnv('PLAID_SECRET'),
+  PLAID_SECRET: requireEnv('PLAID_SANDBOX_SECRET'),
   PLAID_ENV: process.env.PLAID_ENV ?? 'sandbox',
 };

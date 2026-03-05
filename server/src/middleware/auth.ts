@@ -25,7 +25,7 @@ export const authMiddleware = async function(req: Request, res: Response, next: 
   
     const decoded = jwt.verify(token, env.JWT_SECRET) as unknown as { userId: string };
   
-    req.user = { id: decoded.userId }
+    (req as Request & { user: { id: string } }).user = { id: decoded.userId };
 
     next()
   } catch (error) {
