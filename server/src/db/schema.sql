@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS plaid_items (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     plaid_item_id TEXT UNIQUE NOT NULL,
     encrypted_access_token TEXT NOT NULL,
+    environment TEXT NOT NULL CHECK (environment in ('sandbox', 'production')),
     institution_id TEXT,
     institution_name TEXT,
     status TEXT,

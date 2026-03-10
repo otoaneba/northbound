@@ -17,6 +17,7 @@ interface Env {
   PLAID_CLIENT_ID: string;
   PLAID_SECRET: string;
   PLAID_ENV: string;
+  ENCRYPTION_KEY: string;
 }
 
 export const env: Env = {
@@ -28,4 +29,5 @@ export const env: Env = {
   PLAID_CLIENT_ID: requireEnv('PLAID_CLIENT_ID'),
   PLAID_SECRET: requireEnv('PLAID_SANDBOX_SECRET'),
   PLAID_ENV: process.env.PLAID_ENV ?? 'sandbox',
+  ENCRYPTION_KEY: requireEnv('ENCRYPTION_KEY'),
 };

@@ -15,7 +15,8 @@ export const plaidClient = new PlaidApi(configuration);
 
 export const SandboxInstitutions = {
   FIRST_PLATYPUS_BANK: 'ins_109508',
+  FIRST_PLATYPUS_BANK_NAME: 'First Platypus Bank',
   TARTAN_BANK: 'ins_109511',
   PLATYPUS_OAUTH_BANK: 'ins_127287',
-  UNHEALTHY_PLATYPUS_BANK_DOWN: 'ins_132361'
-}
+  UNHEALTHY_PLATYPUS_BANK_DOWN: 'ins_132361',
+} as const;
