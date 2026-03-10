@@ -6,8 +6,8 @@ export const PlaidController = {
   sandboxGetAccessToken: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { id: userId } = (req as AuthenticatedRequest).user;
-      const response = await PlaidService.sandboxGetAccessToken({ userId });
-      return res.status(200).json({ accessToken: response?.accessToken, itemId: response?.itemId });
+      const savedItem = await PlaidService.sandboxGetAccessToken({ userId });
+      return res.status(200).json(savedItem);
     } catch (error) {
       next(error);
     }
@@ -33,4 +33,14 @@ export const PlaidController = {
       next(error);
     }
   },
+
+  getPlaidItems: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id: userId } = (req as AuthenticatedRequest).user;
+      const items = await PlaidService.getPlaidItems({ userId });
+      return res.status(200).json(items);
+    } catch (error) {
+      next(error);
+    }
+  }
 };

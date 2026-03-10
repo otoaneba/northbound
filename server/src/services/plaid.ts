@@ -114,7 +114,7 @@ export const PlaidService = {
       throw new ValidationError("Invalid access token");
     }
 
-    return await PlaidItemModel.create({
+    const result =  await PlaidItemModel.create({
       userId,
       plaidItemId,
       encryptedAccessToken,
@@ -124,6 +124,24 @@ export const PlaidService = {
       cursor: cursor ?? null,
       environment: env.PLAID_ENV,
     });
+
+    return {
+      id: result.id,
+      institutionName: result.institution_name
+    }
+  },
+  
+  getPlaidItems: async ({ userId }: { userId: string }) => {
+    if (!userId || userId.trim() === "") {
+      throw new ValidationError("Invalid user ID", { userId });
+    }
+
+    const user = await UserModel.findById(userId);
+    if (!user) {
+      throw new NotFoundError("User", userId);
+    }
+
+    return await PlaidItemModel.findAllByUserId(userId);
   }
 
 };

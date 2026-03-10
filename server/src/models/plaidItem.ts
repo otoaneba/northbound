@@ -20,7 +20,7 @@ export const PlaidItemModel = {
         INSERT INTO plaid_items
           (user_id, plaid_item_id, encrypted_access_token, environment, institution_id, institution_name, status, cursor)
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING id, plaid_item_id
+        RETURNING id, institution_name
       `;
       result = await pool.query(sql, [userId, plaidItemId, encryptedAccessToken, environment, institutionId, institutionName, status, cursor]);
     } catch (error) {
@@ -31,4 +31,21 @@ export const PlaidItemModel = {
     }
     return result.rows[0];
   },
+
+  findAllByUserId: async (userId: string) => {
+    let result;
+    try {
+      const sql = `
+        SELECT id, plaid_item_id, institution_id, institution_name, status, environment, created_at
+        FROM plaid_items WHERE user_id = $1
+      `;
+      result = await pool.query(sql, [userId])
+    } catch (error) {
+      throw new QueryError("Failed to retrieve Plaid Item", { userId, cause: error });
+    }
+    if (!result.rows[0]) {
+      throw new QueryError("Failed to create PlaidItem — no row returned");
+    }
+    return result.rows;
+  }
 };
