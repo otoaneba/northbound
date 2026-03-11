@@ -42,3 +42,5 @@ lerna-debug.log*
 *.swp
 *.swo
 
+# local setup files
+docker-compose.yml

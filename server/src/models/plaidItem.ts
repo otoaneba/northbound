@@ -41,7 +41,7 @@ export const PlaidItemModel = {
     let result;
     try {
       const sql = `
-        SELECT id, plaid_item_id, encrypted_access_token, institution_id, institution_name, status, environment, created_at
+        SELECT id, user_id, plaid_item_id, encrypted_access_token, institution_id, institution_name, status, environment, created_at
         FROM plaid_items WHERE id = $1
       `;
       result = await pool.query(sql, [plaidId])

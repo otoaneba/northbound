@@ -66,8 +66,9 @@ export const PlaidController = {
 
   syncPlaidTransactions: async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const { id: userId } = (req as AuthenticatedRequest).user;
       const { plaidId } = req.params as { plaidId: string };
-      const transactions = await PlaidService.syncPlaidTransactions(plaidId);
+      const transactions = await PlaidService.syncPlaidTransactions({ plaidId, userId });
       return res.status(200).json(transactions);
     } catch (error) {
       next(error)

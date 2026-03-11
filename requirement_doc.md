@@ -340,9 +340,26 @@ errorHandler handles and returns
 
 
 # DB 
-- Start with postgreSQL locally first
-- then migrate to Supabase
+## Local (Dev)
+- Docker + PostgreSQL for local development and testing
+- Schema auto-initialized via `docker-entrypoint-initdb.d/schema.sql` on first `docker compose up`
 
+## Production (MVP)
+- **Render** to host both the Node/Express backend and PostgreSQL database
+- Use Render's managed PostgreSQL service (replaces previous Supabase plan)
+- `DATABASE_URL` env var swapped out for Render's connection string on deploy
+##### Commands to use
+
+``` python
+docker compose up -d # start in background
+
+docker compose down # stop
+
+docker compose down -v # stop + wipe data
+
+docker compose logs db # view postgres logs
+
+```
 
 
 # Backend Folder Architecture
@@ -387,6 +404,58 @@ src/
 		utils/
 ```
 
+
+# Day 6 - Auth + Postman Testing
+
+## Goals
+- Verify auth flow end-to-end (signup → login → protected route)
+- Confirm DB rows are created correctly
+- Confirm error handling works as expected
+
+## Pre-flight checklist
+- [ ] Docker is running (`docker compose ps`)
+- [ ] `npm run dev` starts without errors
+- [ ] pgAdmin connected to `northbound` DB
+
+## Postman Test Plan
+
+### 1. POST /auth/signup — happy path
+- **Body:** `{ "email": "test@example.com", "password": "password123", "name": "Test User" }`
+- **Expect:** `201` with `{ token, user: { id, email, name } }`
+- **Verify in pgAdmin:** row exists in `users` table with hashed password
+
+### 2. POST /auth/signup — duplicate email
+- Same body as above
+- **Expect:** `400` with `{ error: "Email already registered" }`
+
+### 3. POST /auth/signup — validation errors
+- Missing password: `{ "email": "test@example.com" }` → `400`
+- Short password: `{ "email": "test@example.com", "password": "abc" }` → `400`
+- Bad email: `{ "email": "notanemail", "password": "password123" }` → `400`
+
+### 4. POST /auth/login — happy path
+- **Body:** `{ "email": "test@example.com", "password": "password123" }`
+- **Expect:** `200` with `{ token, user: { id, email, name } }`
+- **Save the token** for the next test
+
+### 5. POST /auth/login — wrong password
+- **Body:** `{ "email": "test@example.com", "password": "wrongpassword" }`
+- **Expect:** `401` with `{ error: "Invalid email or password" }`
+
+### 6. POST /auth/login — non-existent email
+- **Body:** `{ "email": "nobody@example.com", "password": "password123" }`
+- **Expect:** `401` with `{ error: "Invalid email or password" }`
+
+### 7. Protected route — valid token
+- Add header: `Authorization: Bearer <token from step 4>`
+- Hit any protected route (can use `GET /` as a placeholder)
+- **Expect:** not a `401`
+
+### 8. Protected route — missing/invalid token
+- No `Authorization` header
+- **Expect:** `401` with `{ error: "Token is invalid." }`
+
+---
 
 # Core UI Screens
 

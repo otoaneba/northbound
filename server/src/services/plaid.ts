@@ -1,4 +1,4 @@
-import { ValidationError, AlreadyExistsError, AuthenticationError, NotFoundError } from "../utils/errors.js";
+import { ValidationError, AlreadyExistsError, AuthenticationError, NotFoundError, ForbiddenError } from "../utils/errors.js";
 import { UserModel } from "../models/user.js";
 import { env } from "../config/env.js";
 import type { LinkTokenCreateRequest, ItemPublicTokenExchangeRequest, SandboxPublicTokenCreateRequest, Transaction, RemovedTransaction, TransactionsSyncRequest, AccountBase } from 'plaid';
@@ -188,9 +188,13 @@ export const PlaidService = {
     return await PlaidItemModel.getPlaidItemCursor(plaidId);
   },
 
-  syncPlaidTransactions: async (plaidId: string) => {
-    if (!plaidId || plaidId.trim() == "") {
-      throw new ValidationError("Invalid plaid ID", plaidId)
+  syncPlaidTransactions: async ({ plaidId, userId }: { plaidId: string; userId: string }) => {
+    if (!plaidId || plaidId.trim() === "") {
+      throw new ValidationError("Invalid plaid ID", { plaidId });
+    }
+
+    if (!userId || userId.trim() === "") {
+      throw new ValidationError("Invalid user ID", { userId });
     }
 
     const plaidItem = await PlaidItemModel.findById(plaidId);
@@ -198,14 +202,17 @@ export const PlaidService = {
       throw new NotFoundError("PlaidItem", plaidId);
     }
 
+    if (plaidItem.user_id !== userId) {
+      throw new ForbiddenError("You do not have access to this Plaid item");
+    }
+
     const accessToken = decrypt(plaidItem.encrypted_access_token);
-    // Provide a cursor from your database if you've previously
-    // received one for the Item. Leave null if this is your
-    // first sync call for this Item. The first request will
-    // return a cursor.
-    let cursor = await PlaidService.getPlaidItemCursor(plaidId);
 
     try {
+      // Use empty string for first sync; Plaid returns next_cursor for subsequent calls
+      const cursorResult = await PlaidItemModel.getPlaidItemCursor(plaidId);
+      let cursor = cursorResult?.cursor ?? "";
+
       // New transaction updates since "cursor"
       let added: Array<Transaction> = [];
       let modified: Array<Transaction> = [];
