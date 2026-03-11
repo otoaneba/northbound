@@ -16,7 +16,7 @@ export const PlaidController = {
   createLinkToken: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { id: userId } = (req as AuthenticatedRequest).user;
-      const linkToken = await PlaidService.createLinkToken({ userId });
+      const linkToken = await PlaidService.createLinkToken(userId);
       return res.status(200).json({ link_token: linkToken });
     } catch (error) {
       next(error);
@@ -27,7 +27,7 @@ export const PlaidController = {
     try {
       const { id: userId } = (req as AuthenticatedRequest).user;
       const { public_token } = req.body;
-      const result = await PlaidService.exchangePublicToken({ userId, publicToken: public_token });
+      const result = await PlaidService.exchangePublicToken(userId, public_token);
       return res.status(200).json(result);
     } catch (error) {
       next(error);
@@ -37,10 +37,51 @@ export const PlaidController = {
   getPlaidItems: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { id: userId } = (req as AuthenticatedRequest).user;
-      const items = await PlaidService.getPlaidItems({ userId });
+      const items = await PlaidService.getAllPlaidItems({ userId });
       return res.status(200).json(items);
     } catch (error) {
       next(error);
     }
-  }
+  }, 
+
+  getPlaidAccounts: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { plaidId } = req.params as { plaidId: string };
+      const accounts = await PlaidService.fetchPlaidItemAccounts(plaidId);
+      return res.status(200).json(accounts);
+    } catch (error) {
+      next(error)
+    }
+  }, 
+
+  syncPlaidAccounts: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { plaidId } = req.params as { plaidId: string };
+      const accounts = await PlaidService.syncAccounts(plaidId);
+      return res.status(200).json(accounts);
+    } catch (error) {
+      next(error)
+    }
+  }, 
+
+  syncPlaidTransactions: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { plaidId } = req.params as { plaidId: string };
+      const transactions = await PlaidService.syncPlaidTransactions(plaidId);
+      return res.status(200).json(transactions);
+    } catch (error) {
+      next(error)
+    }
+  }, 
+
+  getPlaidItemCursor: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { plaidId } = req.params as { plaidId: string };
+      const cursor = await PlaidService.getPlaidItemCursor(plaidId);
+      return res.status(200).json(cursor);
+    } catch (error) {
+      next(error)
+    }
+  }, 
+
 };

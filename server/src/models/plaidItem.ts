@@ -32,6 +32,25 @@ export const PlaidItemModel = {
     return result.rows[0];
   },
 
+  /**
+   * Get a single plaid item. Only use this for a proxy call in the server (never for a call from the frontend as it returns access token).
+   * @param plaidId 
+   * @returns 
+   */
+  findById: async (plaidId: string) => {
+    let result;
+    try {
+      const sql = `
+        SELECT id, plaid_item_id, encrypted_access_token, institution_id, institution_name, status, environment, created_at
+        FROM plaid_items WHERE id = $1
+      `;
+      result = await pool.query(sql, [plaidId])
+    } catch (error) {
+      throw new QueryError("Failed to retrieve Plaid Item", { plaidId, cause: error });
+    }
+    return result.rows[0] ?? null;
+  },
+
   findAllByUserId: async (userId: string) => {
     let result;
     try {
@@ -43,9 +62,21 @@ export const PlaidItemModel = {
     } catch (error) {
       throw new QueryError("Failed to retrieve Plaid Item", { userId, cause: error });
     }
-    if (!result.rows[0]) {
-      throw new QueryError("Failed to create PlaidItem — no row returned");
-    }
     return result.rows;
+  },
+
+  getPlaidItemCursor: async (plaidId: string) => {
+    let result;
+    try {
+      const sql = `
+        SELECT cursor
+        FROM plaid_items WHERE id = $1
+      `;
+      result = await pool.query(sql, [plaidId]);
+
+    } catch (error) {
+      throw new QueryError("Failed to retrieve Plaid Item", { plaidId, cause: error });
+    }
+    return result.rows[0] ?? null;
   }
 };

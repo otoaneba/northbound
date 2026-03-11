@@ -20,6 +20,8 @@ interface Env {
   ENCRYPTION_KEY: string;
 }
 
+const plaidEnv = process.env.PLAID_ENV ?? 'sandbox';
+
 export const env: Env = {
   PORT: process.env.PORT ?? '5050',
   NODE_ENV: process.env.NODE_ENV ?? 'development',
@@ -27,7 +29,9 @@ export const env: Env = {
   JWT_SECRET: requireEnv('JWT_SECRET'),
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN ?? '7d',
   PLAID_CLIENT_ID: requireEnv('PLAID_CLIENT_ID'),
-  PLAID_SECRET: requireEnv('PLAID_SANDBOX_SECRET'),
-  PLAID_ENV: process.env.PLAID_ENV ?? 'sandbox',
+  PLAID_SECRET: plaidEnv === 'sandbox'
+    ? requireEnv('PLAID_SANDBOX_SECRET')
+    : requireEnv('PLAID_PRODUCTION_SECRET'),
+  PLAID_ENV: plaidEnv,
   ENCRYPTION_KEY: requireEnv('ENCRYPTION_KEY'),
 };
