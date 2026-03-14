@@ -78,5 +78,36 @@ export const PlaidItemModel = {
       throw new QueryError("Failed to retrieve Plaid Item", { plaidId, cause: error });
     }
     return result.rows[0] ?? null;
-  }
+  }, 
+
+  updateCursor: async (plaidItemId: string, cursor: string) => {
+    const sql = `
+      UPDATE plaid_items
+      SET cursor = $2,
+          updated_at = NOW()
+      WHERE id = $1
+      RETURNING id
+    `;
+  
+    try {
+      const result = await pool.query(sql, [plaidItemId, cursor])
+  
+      if (result.rowCount === 0) {
+        throw new QueryError(
+          "Failed to update Plaid cursor — item not found",
+          { plaidItemId }
+        )
+      }
+  
+      return result.rows[0]
+    } catch (error) {
+      throw new QueryError(
+        "Failed to update Plaid cursor",
+        {
+          plaidItemId,
+          cause: error
+        }
+      )
+    }
+  },
 };

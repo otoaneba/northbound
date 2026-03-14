@@ -80,4 +80,24 @@ export const BankAccountModel = {
       });
     }
   },
+
+  findByPlaidItemId: async (plaidItemId: string) => {
+    const sql = `
+      SELECT
+        id,
+        plaid_account_id
+      FROM bank_accounts
+      WHERE plaid_item_uuid = $1
+    `;
+  
+    try {
+      const result = await pool.query(sql, [plaidItemId]);
+      return result.rows;
+    } catch (error) {
+      throw new QueryError("Failed to fetch bank accounts by Plaid item", {
+        plaidItemId,
+        cause: error,
+      });
+    }
+  },
 };

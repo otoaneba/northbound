@@ -1,50 +1,66 @@
-// import { BankAccountModel } from "../../models/bankAccount.js"
-// import { TransactionMapper } from "./transaction.mapper.js";
-// import { TransactionModel } from "../../models/transaction.js";
+import { BankAccountModel } from "../../models/bankAccount.js"
+import { TransactionModel } from "../../models/transaction.js"
+import { PlaidItemModel } from "../../models/plaidItem.js"
+import { TransactionMapper } from "./transaction.mapper.js"
+import type { Transaction as PlaidTxn, RemovedTransaction, AccountBase } from "plaid"
+import type { TransactionInsertDTO } from "./transaction.types.js"
 
-// export const TransactionService = {
+interface PlaidSyncResult {
+  added: PlaidTxn[]
+  modified: PlaidTxn[]
+  removed: RemovedTransaction[]
+  accounts: AccountBase[]
+  cursor: string
+}
 
-//   async applyPlaidSyncResult(
-//     plaidItemId: string,
-//     result: PlaidSyncResult
-//   ) {
+export const TransactionService = {
 
-//     const accounts =
-//       await BankAccountModel.findByPlaidItemId(plaidItemId)
+  async applyPlaidSyncResult(
+    plaidItemId: string,
+    result: PlaidSyncResult
+  ) {
 
-//     const accountMap = new Map(
-//       accounts.map(a => [a.plaid_account_id, a.id])
-//     )
+    // 1️⃣ load internal bank accounts for this item
+    const accounts =
+      await BankAccountModel.findByPlaidItemId(plaidItemId)
 
-//     const dtos = result.added
-//       .map(txn => {
-//         const bankAccountId =
-//           accountMap.get(txn.account_id)
+    const accountMap = new Map(
+      accounts.map(a => [a.plaid_account_id, a.id])
+    )
 
-//         if (!bankAccountId) return null
+    // 2️⃣ map transactions → DTO
+    const dtos = result.added
+      .map(txn => {
+        const bankAccountId = accountMap.get(txn.account_id)
 
-//         return TransactionMapper.mapPlaidTxnToDTO(
-//           txn,
-//           bankAccountId
-//         )
-//       })
-//       .filter(Boolean)
+        if (!bankAccountId) {
+          // safe skip — account sync race condition possible
+          console.warn("Skipping txn, unknown account:", txn.account_id)
+          return null
+        }
 
-//     await TransactionModel.bulkInsertPlaid(dtos)
+        return TransactionMapper.mapPlaidTxnToDTO(
+          txn,
+          bankAccountId
+        )
+      })
+      .filter((t): t is TransactionInsertDTO => t !== null)
 
-//     await TransactionModel.softDeleteByPlaidIds(
-//       result.removed.map(r => r.transaction_id)
-//     )
+    // 3️⃣ bulk insert
+    const inserted =
+      await TransactionModel.bulkInsertPlaid(dtos)
 
-//     await PlaidItemModel.updateCursor(
-//       plaidItemId,
-//       result.cursor
-//     )
+    // 4️⃣ persist cursor AFTER successful insert
+    await PlaidItemModel.updateCursor(
+      plaidItemId,
+      result.cursor
+    )
 
-//     return {
-//       inserted: dtos.length,
-//       removed: result.removed.length
-//     }
-//   }
+    return {
+      inserted,
+      received: result.added.length,
+      cursor: result.cursor
+    }
+  }
 
-// }
+}
