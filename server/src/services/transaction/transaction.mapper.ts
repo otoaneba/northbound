@@ -13,7 +13,7 @@ export const TransactionMapper = {
       plaidTransactionId: txn.transaction_id,
       csvRowHash: null,
       date: txn.date, // already yyyy-mm-dd
-      amount: normalizePlaidAmount(txn.amount),
+      amount: normalizePlaidAmount(txn.amount, primaryCategory),
       merchantName: txn.merchant_name ?? null,
       name: txn.merchant_name ?? "Unknown",
       pending: txn.pending ?? false,
@@ -27,13 +27,26 @@ export const TransactionMapper = {
 
 }
 
-function normalizePlaidAmount(amount: number): number {
+function normalizePlaidAmount(amount: number, primaryCategory: string | null): number {
+
   if (!Number.isFinite(amount)) {
     throw new Error("Invalid Plaid transaction amount")
   }
-  const normalized = -amount
-  
-  // enforce 2-decimal financial precision
-  return Number(amount.toFixed(2))
+
+  const abs = Math.abs(amount)
+
+  const inflowCategories = [
+    "INCOME",
+    "TRANSFER_IN",
+    "REFUND",
+    "INTEREST"
+  ]
+
+  if (primaryCategory && inflowCategories.includes(primaryCategory)) {
+    return Number(abs.toFixed(2))
+  }
+
+  // EVERYTHING ELSE is spending
+  return Number((-abs).toFixed(2))
 }
 
