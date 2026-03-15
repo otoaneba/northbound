@@ -15,46 +15,59 @@ interface PlaidSyncResult {
 
 export const TransactionService = {
 
-  async applyPlaidSyncResult(
-    plaidItemId: string,
-    result: PlaidSyncResult
-  ) {
-
+  async applyPlaidSyncResult(plaidItemId: string, result: PlaidSyncResult) {
     // 1️⃣ load internal bank accounts for this item
-    const accounts =
-      await BankAccountModel.findByPlaidItemId(plaidItemId)
+    const accounts = await BankAccountModel.findByPlaidItemId(plaidItemId)
 
     const accountMap = new Map(
       accounts.map(a => [a.plaid_account_id, a.id])
     )
 
     // 2️⃣ map transactions → DTO
-    const dtos = result.added
-      .map(txn => {
-        const bankAccountId = accountMap.get(txn.account_id)
+    // const dtos = result.added
+    //   .map(txn => {
+    //     const bankAccountId = accountMap.get(txn.account_id)
 
-        if (!bankAccountId) {
-          // safe skip — account sync race condition possible
-          console.warn("Skipping txn, unknown account:", txn.account_id)
-          return null
-        }
+    //     if (!bankAccountId) {
+    //       // safe skip — account sync race condition possible
+    //       console.warn("Skipping txn, unknown account:", txn.account_id)
+    //       return null
+    //     }
 
-        return TransactionMapper.mapPlaidTxnToDTO(
+    //     return TransactionMapper.mapPlaidTxnToDTO(
+    //       txn,
+    //       bankAccountId
+    //     )
+    //   })
+    //   .filter((t): t is TransactionInsertDTO => t !== null)
+
+    const dtos: TransactionInsertDTO[] = []
+
+    for (const txn of result.added) {
+      const bankAccountId =
+        accountMap.get(txn.account_id)
+  
+      if (!bankAccountId) {
+        console.warn(
+          "Skipping txn, unknown account:",
+          txn.account_id
+        )
+        continue
+      }
+  
+      dtos.push(
+        TransactionMapper.mapPlaidTxnToDTO(
           txn,
           bankAccountId
         )
-      })
-      .filter((t): t is TransactionInsertDTO => t !== null)
+      )
+    }
 
     // 3️⃣ bulk insert
-    const inserted =
-      await TransactionModel.bulkInsertPlaid(dtos)
+    const inserted = await TransactionModel.bulkInsertPlaid(dtos)
 
     // 4️⃣ persist cursor AFTER successful insert
-    await PlaidItemModel.updateCursor(
-      plaidItemId,
-      result.cursor
-    )
+    await PlaidItemModel.updateCursor(plaidItemId, result.cursor)
 
     return {
       inserted,

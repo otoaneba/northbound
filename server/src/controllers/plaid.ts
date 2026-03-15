@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import type { AuthenticatedRequest } from '../types/express.js';
 import { PlaidService } from '../services/plaid.js';
+import { TransactionService } from '../services/transaction/transaction.service.js';
 
 export const PlaidController = {
   sandboxGetAccessToken: async (req: Request, res: Response, next: NextFunction) => {
@@ -84,5 +85,22 @@ export const PlaidController = {
       next(error)
     }
   }, 
+
+  testSync: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { id: userId } = (req as AuthenticatedRequest).user;
+      const { plaidId } = req.params as { plaidId: string };
+      
+      const syncResult = await PlaidService.syncPlaidTransactions({
+        plaidId,
+        userId
+      })
+
+      const summary = await TransactionService.applyPlaidSyncResult(plaidId, syncResult)
+      return res.status(200).json({...summary});
+    } catch (error) {
+      next(error)
+    }
+  }
 
 };

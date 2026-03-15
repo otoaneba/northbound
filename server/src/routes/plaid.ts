@@ -15,3 +15,5 @@ plaidRoutes.post('/items/:plaidId/transactions/sync', authMiddleware, PlaidContr
 plaidRoutes.get('/items/:plaidId/accounts', authMiddleware, PlaidController.getPlaidAccounts);
 plaidRoutes.get('/items/:plaidId/cursor', authMiddleware, PlaidController.getPlaidItemCursor);
 
+// TESTING
+plaidRoutes.post('/items/:plaidId/transactions/sync/test', authMiddleware, PlaidController.testSync);
