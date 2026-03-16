@@ -13,7 +13,7 @@ export class ChaseAdapter implements CsvAdapter {
 
   mapRow(row: any, bankAccountId: string): TransactionInsertDTO {
 
-    const amount = row.Type === "DEBIT" ? -Math.abs(Number(row.Amount)) : Math.abs(Number(row.Amount));
+    const amount = Number(row.Amount);
     const name = row.Description;
     const csvHash = buildCsvRowHash(bankAccountId, row["Posting Date"], amount, name);
 
