@@ -26,8 +26,8 @@ CREATE TABLE IF NOT EXISTS plaid_items (
 -- BANK ACCOUNTS
 CREATE TABLE IF NOT EXISTS bank_accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    plaid_account_id TEXT UNIQUE NOT NULL,
-    plaid_item_uuid UUID NOT NULL REFERENCES plaid_items(id) ON DELETE CASCADE,
+    plaid_account_id TEXT UNIQUE,
+    plaid_item_uuid UUID REFERENCES plaid_items(id) ON DELETE CASCADE,
     mask TEXT,
     name TEXT,
     official_name TEXT,

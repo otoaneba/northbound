@@ -67,6 +67,71 @@ export const TransactionModel = {
         cause: error
       });
     }
+  }, 
+
+  bulkInsertCsv: async (txns: TransactionInsertDTO[]) => {
+    if (txns.length === 0) return 0;
+  
+    const bankAccountIds = txns.map(t => t.bankAccountId);
+    const hashes = txns.map(t => t.csvRowHash);
+    const sources = txns.map(t => t.source);
+    const dates = txns.map(t => t.date);
+    const amounts = txns.map(t => t.amount);
+    const merchantNames = txns.map(t => t.merchantName);
+    const names = txns.map(t => t.name);
+    const pendings = txns.map(t => t.pending);
+    const currencies = txns.map(t => t.isoCurrencyCode);
+    const categories = txns.map(t => t.category);
+  
+    const sql = `
+      INSERT INTO transactions (
+        bank_account_id,
+        csv_row_hash,
+        source,
+        date,
+        amount,
+        merchant_name,
+        name,
+        pending,
+        iso_currency_code,
+        category
+      )
+      SELECT
+        unnest($1::uuid[]),
+        unnest($2::text[]),
+        unnest($3::transaction_source[]),
+        unnest($4::date[]),
+        unnest($5::numeric[]),
+        unnest($6::text[]),
+        unnest($7::text[]),
+        unnest($8::boolean[]),
+        unnest($9::text[]),
+        unnest($10::text[])
+      ON CONFLICT (csv_row_hash)
+      DO NOTHING
+    `;
+  
+    try {
+      const result = await pool.query(sql, [
+        bankAccountIds,
+        hashes,
+        sources,
+        dates,
+        amounts,
+        merchantNames,
+        names,
+        pendings,
+        currencies,
+        categories
+      ]);
+  
+      return result.rowCount;
+    } catch (error) {
+      throw new QueryError("Failed to bulk insert CSV transactions", {
+        txnCount: txns.length,
+        cause: error
+      });
+    }
   }
 
 };
