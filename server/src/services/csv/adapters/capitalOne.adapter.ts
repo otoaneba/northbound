@@ -32,7 +32,7 @@ export class CapitalOneAdapter implements CsvAdapter {
       name: name,
       pending: false,
       isoCurrencyCode: "USD",
-      category: null
+      category: csvUtil.mapNameToCategory(row["Transaction Description"])
     }
   }
 }

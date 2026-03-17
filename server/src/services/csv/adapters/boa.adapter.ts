@@ -40,7 +40,7 @@ export class BoaAdapter implements CsvAdapter {
       name: row.Description,
       pending: false,
       isoCurrencyCode: "USD",
-      category: null
+      category: csvUtil.mapNameToCategory(row.Description)
     }
   }
 }
