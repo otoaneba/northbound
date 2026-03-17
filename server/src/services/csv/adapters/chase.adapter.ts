@@ -17,8 +17,6 @@ export class ChaseAdapter implements CsvAdapter {
     const name = row.Description;
     const csvHash = buildCsvRowHash(bankAccountId, row["Posting Date"], amount, name);
 
-    console.log("date for chase transaction: ", row["Posting Date"]);
-
     return {
       bankAccountId,
       source: "csv",   // now typed correctly
