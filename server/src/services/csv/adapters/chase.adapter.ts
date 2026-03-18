@@ -5,7 +5,7 @@ import type { TransactionInsertDTO } from "../../transaction/transaction.types.j
 
 export class ChaseAdapter implements CsvAdapter {
 
-  canHandle(headers: string[]): boolean {
+  canHandle(headers: string[], _sampleRows: any[]): boolean {
     return headers.includes("Posting Date")
         && headers.includes("Amount")
         && headers.includes("Type")
@@ -16,6 +16,7 @@ export class ChaseAdapter implements CsvAdapter {
     const amount = Number(row.Amount);
     const name = row.Description;
     const csvHash = buildCsvRowHash(bankAccountId, row["Posting Date"], amount, name);
+    const category = csvUtil.mapNameToCategory(name);
 
     return {
       bankAccountId,
@@ -28,7 +29,7 @@ export class ChaseAdapter implements CsvAdapter {
       name: row.Description,
       pending: false,
       isoCurrencyCode: "USD",
-      category: null
+      category: category
     }
   }
 }

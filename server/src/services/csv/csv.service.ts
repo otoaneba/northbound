@@ -7,14 +7,10 @@ export const CsvService = {
 
   async ingestCsvFile(filePath: string, bankAccountId: string) {
     // 1️⃣ parse raw rows
-    const rows = await parseCsvFile(filePath)
-
-    if (rows.length === 0) {
-      return { inserted: 0, received: 0 }
-    }
+    const { rows, headers } = await parseCsvFile(filePath)
 
     // 2️⃣ detect adapter
-    const adapter = resolveCsvAdapter(Object.keys(rows[0]))
+    const adapter = resolveCsvAdapter(headers, rows)
 
     // 3️⃣ map rows → DTO
     const dtos = []
@@ -30,7 +26,9 @@ export const CsvService = {
     const inserted = await TransactionModel.bulkInsertCsv(dtos)
 
     // 5️⃣ cleanup temp file
-    fs.unlink(filePath, () => {})
+    await fs.promises.unlink(filePath).catch((err) => {
+      console.warn("Failed to delete temp file:", filePath, err.message)
+    })
 
     return {
       inserted,

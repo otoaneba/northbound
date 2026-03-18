@@ -5,18 +5,16 @@ import { buildCsvRowHash } from "../csv.hash.js"
 
 export class AppleAdapter implements CsvAdapter {
 
-  canHandle(headers: string[]): boolean {
+  canHandle(headers: string[], _sampleRows: any[]): boolean {
     return headers.includes("Merchant") && headers.includes("Transaction Date")
   }
 
   mapRow(row: any, bankAccountId: string): TransactionInsertDTO | null {
 
-    const rawAmount = Number(row["Amount (USD)"])
-    if (!Number.isFinite(rawAmount)) return null
-
-    const amount = rawAmount > 0 ? Math.abs(rawAmount) : -Math.abs(rawAmount);
+    const amount = Number(row["Amount (USD)"])
     const name = row.Description ?? row.Merchant;
-    const csvHash = buildCsvRowHash(bankAccountId, row["Transaction Date"], amount, name)
+    const csvHash = buildCsvRowHash(bankAccountId, row["Transaction Date"], amount, name);
+    const category = csvUtil.mapNameToCategory(name);
 
     return {
       bankAccountId,
@@ -29,7 +27,7 @@ export class AppleAdapter implements CsvAdapter {
       name: name,
       pending: false,
       isoCurrencyCode: "USD",
-      category: row.Category ?? null
+      category: category ?? row.Category ?? null
     }
   }
 }

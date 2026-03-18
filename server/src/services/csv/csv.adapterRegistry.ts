@@ -10,9 +10,10 @@ const adapters = [
   new AppleAdapter()
 ]
 
-function resolveCsvAdapter(headers: string[]) {
+function resolveCsvAdapter(headers: string[], rows: any[]) {
+  const sample = rows.slice(0, 5)
   const adapter = adapters.find(a =>
-    a.canHandle(headers)
+    a.canHandle(headers, sample)
   )
 
   if (!adapter) {

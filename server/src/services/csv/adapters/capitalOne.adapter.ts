@@ -5,7 +5,7 @@ import type { TransactionInsertDTO } from "../../transaction/transaction.types.j
 
 export class CapitalOneAdapter implements CsvAdapter {
 
-  canHandle(headers: string[]): boolean {
+  canHandle(headers: string[], _sampleRows: any[]): boolean {
     return headers.includes("Transaction Description")
         && headers.includes("Transaction Type")
   }
@@ -20,6 +20,7 @@ export class CapitalOneAdapter implements CsvAdapter {
     const amount = row["Transaction Type"] === "Debit" ? -Math.abs(rawAmount) : Math.abs(rawAmount);
     const name = row["Transaction Description"];
     const csvHash = buildCsvRowHash(bankAccountId, row["Transaction Date"], amount, name);
+    const category = csvUtil.mapNameToCategory(name);
 
     return {
       bankAccountId,
@@ -32,7 +33,7 @@ export class CapitalOneAdapter implements CsvAdapter {
       name: name,
       pending: false,
       isoCurrencyCode: "USD",
-      category: csvUtil.mapNameToCategory(row["Transaction Description"])
+      category: category
     }
   }
 }

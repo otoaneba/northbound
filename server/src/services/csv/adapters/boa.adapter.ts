@@ -5,8 +5,19 @@ import type { TransactionInsertDTO } from "../../transaction/transaction.types.j
 
 export class BoaAdapter implements CsvAdapter {
 
-  canHandle(headers: string[]): boolean {
-    return headers.includes("Running Bal.")
+  canHandle(headers: string[], sampleRows: any[]): boolean {
+    if (headers.includes("Running Bal.")) {
+      return true
+    }
+  
+    const boaPatternDetected =
+      sampleRows.some(r =>
+        Object.keys(r).some(k =>
+          k.includes("Running Bal")
+        )
+      )
+  
+    return boaPatternDetected
   }
 
   mapRow(row: any, bankAccountId: string): TransactionInsertDTO | null {
@@ -15,19 +26,17 @@ export class BoaAdapter implements CsvAdapter {
       return null
     }
 
-    const rawAmount =
-      Number(
-        String(row.Amount)
+    const amount =
+      Number(String(row.Amount)
           .replace(/"/g, "")
           .replace(/,/g, "")
       )
-
-    if (!Number.isFinite(rawAmount)) return null
+    if (!Number.isFinite(amount)) return null
 
     // enforce invariant
-    const amount = rawAmount > 0 ? -Math.abs(rawAmount) : Math.abs(rawAmount);
     const name = row.Description;
     const csvHash = buildCsvRowHash(bankAccountId, row.Date, amount, name);
+    const category = csvUtil.mapNameToCategory(name);
 
     return {
       bankAccountId,
@@ -40,7 +49,7 @@ export class BoaAdapter implements CsvAdapter {
       name: row.Description,
       pending: false,
       isoCurrencyCode: "USD",
-      category: csvUtil.mapNameToCategory(row.Description)
+      category: category
     }
   }
 }
