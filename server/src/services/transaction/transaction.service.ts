@@ -23,24 +23,6 @@ export const TransactionService = {
       accounts.map(a => [a.plaid_account_id, a.id])
     )
 
-    // 2️⃣ map transactions → DTO
-    // const dtos = result.added
-    //   .map(txn => {
-    //     const bankAccountId = accountMap.get(txn.account_id)
-
-    //     if (!bankAccountId) {
-    //       // safe skip — account sync race condition possible
-    //       console.warn("Skipping txn, unknown account:", txn.account_id)
-    //       return null
-    //     }
-
-    //     return TransactionMapper.mapPlaidTxnToDTO(
-    //       txn,
-    //       bankAccountId
-    //     )
-    //   })
-    //   .filter((t): t is TransactionInsertDTO => t !== null)
-
     const dtos: TransactionInsertDTO[] = []
 
     for (const txn of result.added) {
