@@ -6,10 +6,7 @@ I often lose track of my online subscriptions and will sometimes forget that I e
 ### Frontend
 - React
 	- Router
-	- NextJS - Has a lot to offer out of the box including:
-		- built-in API routes
-		- routing and pages
-		- server-side rendering (nice to have)
+	- Vite
 ### Backend
 - NodeJS
 	- ExressJS
@@ -24,13 +21,13 @@ I often lose track of my online subscriptions and will sometimes forget that I e
 - As a user, I want to see all of my subscriptions, so that I can manage them better
 - As a user, I want to connect my bank account so that I can see all my transactions in one place automatically
 - As a user, I want to securely connect my bank account so that I don't have to manually enter transactions, 
-- As a user, I want automatic detections for any updates to my recurring charges so that I am aware of any subscription updates.
+- ~~As a user, I want automatic detections for any updates to my recurring charges so that I am aware of any subscription updates.~~
 - As a user, I want to be able to categorize each expenses so that I can see a breakdown of my monthly spending
 - As a user, I want to see total spending per category
 - As a user, I want to upload a CSV export from my bank so that I can use the app without connecting my bank account directly
 
 ## MVP
-Users connect their **US bank account via Plaid** and the app **automatically detects recurring subscriptions**, showing a **monthly cost breakdown** and **basic alerts**.
+Users connect their **US bank account via Plaid** and ~~the app **automatically detects recurring subscriptions**~~, showing a **monthly cost breakdown** and **basic alerts**.
 
 ##################################################################
 > !NOTE **Change of Plan — Sandbox Only**
@@ -54,28 +51,28 @@ Users connect their **US bank account via Plaid** and the app **automatically de
 - [ ] Transactions are stored in DB with stable IDs (no duplicates)
 - [ ] Sync can be re-run idempotently (safe to retry)
 
-###  Subscription detection (MVP logic)
-- [ ] Group by `merchant_name` (or a stable merchant key)
-- [ ] ~30 day interval
-- [ ] At least 3 occurrences
-- [ ] Produces a `Subscription` record per detected subscription
+### ~~Subscription detection (MVP logic)~~
+- ~~[ ] Group by `merchant_name` (or a stable merchant key)~~
+- ~~[ ] ~30 day interval~~
+- ~~[ ] At least 3 occurrences~~
+- ~~[ ] Produces a `Subscription` record per detected subscription~~
 
 ### Dashboard
-- [ ] Monthly total subscription cost
-- [ ] Subscription list (merchant + avg amount + frequency)
-- [ ] Basic “next expected charge date” (best-effort)
-- [ ] categorized subscriptions (optional: visual chart)
+- ~~[ ] Monthly total subscription cost~~
+- ~~[ ] Subscription list (merchant + avg amount + frequency)~~
+- ~~[ ] Basic “next expected charge date” (best-effort)~~
+- ~~[ ] categorized subscriptions (optional: visual chart)~~
 
 ### CSV Upload (alternative to Plaid)
 - [ ] User can upload a CSV file exported from their bank
 - [ ] Backend parses and validates required columns (`date`, `amount`, `merchant_name` / `name`)
 - [ ] Parsed rows are normalized and upserted as Transactions (keyed by `date + amount + name` to avoid duplicates on re-upload)
-- [ ] Triggers the same subscription detection pipeline as Plaid sync
+- ~~[ ] Triggers the same subscription detection pipeline as Plaid sync~~
 - [ ] Clear error feedback for malformed files or missing columns
 
 ### Alerts (basic)
-- [ ] Simple alert rule (e.g., “new subscription detected” or “price increased”)
-- [ ] In-app notifications are acceptable for MVP (email optional)
+- ~~[ ] Simple alert rule (e.g., “new subscription detected” or “price increased”)~~
+- ~~[ ] In-app notifications are acceptable for MVP (email optional)~~
 
 # Day 1 - Project setup
 
@@ -172,19 +169,19 @@ Users connect their **US bank account via Plaid** and the app **automatically de
    - backend fast-acks 200, dedupes enqueue by plaid_item_id, runs step 4 in background.  
 ==Why: Near-real-time updates instead of my backend constantly polling Plaid. Better performance.==
     
-### 6. Subscription detection after sync  
-- After successful sync, group transactions by:
-	- normalized merchant key
-	- detect recurring pattern (~30 days, >=3 hits)
-	- upsert Subscription
-	- create AlertEvent for new/price increase.  
-Persisted derived data gives stable dashboard numbers and supports historical alerts.
+### ~~6. Subscription detection after sync~~  
+- ~~After successful sync, group transactions by:~~
+	- ~~normalized merchant key~~
+	- ~~detect recurring pattern (~30 days, >=3 hits)~~
+	- ~~upsert Subscription~~
+	- ~~create AlertEvent for new/price increase.~~  
+~~Persisted derived data gives stable dashboard numbers and supports historical alerts.~~
     
 ### 7. Dashboard/read APIs
- - `GET /dashboard/summary`
- - `GET /subscriptions`
+ - ~~`GET /dashboard/summary`~~
+ - ~~`GET /subscriptions`~~
  - `GET /transactions`
- - Call all these to read from persisted tables.  
+ - ~~Call all these to read from persisted tables.~~ Use `GET /transactions` for persisted transaction rows.  
 Fast responses, deterministic UX, and no expensive recalculation on every request.
     
 ## CSV Upload Flow
@@ -201,8 +198,8 @@ Fast responses, deterministic UX, and no expensive recalculation on every reques
 - Set `source = 'csv'`, `plaid_transaction_id = null`, `pending = false`.
 - Associate rows with a synthetic BankAccount for CSV imports (one per user, created on first upload).
 
-### 3. Trigger detection
-- After upsert, run the same subscription detection pipeline (step 6 of Plaid flow).
+### ~~3. Trigger detection~~
+- ~~After upsert, run the same subscription detection pipeline (step 6 of Plaid flow).~~
 
 ###  8. Failure handling
 - If Plaid token invalid, set PlaidItem.status = needs_reauth; do not advance cursor on failed sync; allow manual retry endpoint.  
@@ -244,10 +241,10 @@ Prevent data corruption and make operational recovery explicit.
 7. POST /csv/upload
     - Request: multipart/form-data with `file` field (CSV)
     - Response: { imported, skipped, errors: [{ row, message }] }
-8. GET /subscriptions
-    - Response item: { id, merchant, avgAmount, frequency, lastChargeDate, nextExpectedDate, status }
-9. GET /dashboard/summary
-    - Response: { month, totalSubscriptionCost, activeSubscriptions, newSinceLastMonth, priceIncreases }
+8. ~~GET /subscriptions~~
+    - ~~Response item: { id, merchant, avgAmount, frequency, lastChargeDate, nextExpectedDate, status }~~
+9. ~~GET /dashboard/summary~~
+    - ~~Response: { month, totalSubscriptionCost, activeSubscriptions, newSinceLastMonth, priceIncreases }~~
 
 # Plaid API Endpoints (Production and Sandbox)
 
@@ -258,7 +255,7 @@ Prevent data corruption and make operational recovery explicit.
 | --------------------------- | ----------------------------------------------------------------------------------- |
 | /link/token/create          | Create a link token for the Plaid Link UI so users can connect their bank           |
 | /item/public_token/exchange | Exchange the public token from Link (UI module) for an access_token (then store it) |
-| /transactions/sync          | Fetch and sync transactions (cursor-based, incremental) for subscription detection  |
+| /transactions/sync          | Fetch and sync transactions (cursor-based, incremental) ~~for subscription detection~~  |
 
 ---
 ### Bank Accounts
@@ -294,7 +291,7 @@ Prevent data corruption and make operational recovery explicit.
 # Auth Strategy
 ## Architecture
 - use middleware for authentication and authorization
-- /plaid /sync, subscriptions/, and dashboard/ routes all protected with middleware
+- /plaid /sync routes all protected with middleware; ~~subscriptions/ and dashboard/ routes (subscription detection)~~
 - both long in and signup returns JWT. Don't use middleware as these routes hand over the JWT token
 - app -> **middleware (if needed)** -> controller -> service -> model
 
@@ -377,19 +374,19 @@ src/
 		auth.js
 		plaid.js
 		csv.js
-		subscriptions.js
-		dashboard.js
+		~~subscriptions.js~~
+		~~dashboard.js~~
 	models/
 		user.js,
 		plaidItem.js
 		bankAccount.js
 		transaction.js
-		subscription.js
+		~~subscription.js~~
 	services/
 		auth.js
 		plaid.js
 		csv.js
-		subscriptionDetection.js
+		~~subscriptionDetection.js~~
 	controllers/
 		auth.js
 		plaid.js
