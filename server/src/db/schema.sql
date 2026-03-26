@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS plaid_items (
 -- BANK ACCOUNTS
 CREATE TABLE IF NOT EXISTS bank_accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     plaid_account_id TEXT UNIQUE,
     plaid_item_uuid UUID REFERENCES plaid_items(id) ON DELETE CASCADE,
     mask TEXT,
@@ -39,6 +40,8 @@ CREATE TABLE IF NOT EXISTS bank_accounts (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS idx_bank_accounts_user_id ON bank_accounts(user_id);
 
 -- TRANSACTION SOURCE ENUM
 DO $$ BEGIN

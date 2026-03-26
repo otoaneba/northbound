@@ -2,6 +2,30 @@ import pool from "../config/db.js";
 import { QueryError } from "../utils/errors.js";
 import type { TransactionInsertDTO } from "../services/transaction/transaction.types.js";
 
+export interface TransactionListRow {
+  id: string;
+  bank_account_id: string;
+  bank_account_name: string | null;
+  source: string;
+  date: string;
+  amount: string;
+  merchant_name: string | null;
+  name: string | null;
+  pending: boolean;
+  iso_currency_code: string | null;
+  category: string | null;
+  created_at: Date;
+}
+
+export interface FindTransactionsForUserParams {
+  userId: string;
+  startDate: string | null;
+  endDate: string | null;
+  bankAccountId: string | null;
+  source: "plaid" | "csv" | null;
+  limit: number;
+}
+
 export const TransactionModel = {
 
   bulkInsertPlaid: async (txns: TransactionInsertDTO[]) => {
@@ -132,6 +156,56 @@ export const TransactionModel = {
         cause: error
       });
     }
-  }
+  },
 
+  findForUser: async (params: FindTransactionsForUserParams): Promise<TransactionListRow[]> => {
+    const sql = `
+      SELECT
+        t.id,
+        t.bank_account_id,
+        ba.name AS bank_account_name,
+        t.source::text AS source,
+        t.date::text AS date,
+        t.amount::text AS amount,
+        t.merchant_name,
+        t.name,
+        t.pending,
+        t.iso_currency_code,
+        t.category,
+        t.created_at
+      FROM transactions t
+      INNER JOIN bank_accounts ba ON ba.id = t.bank_account_id
+      WHERE t.removed_at IS NULL
+        AND (
+          ba.user_id = $1::uuid
+          OR EXISTS (
+            SELECT 1 FROM plaid_items pi
+            WHERE pi.id = ba.plaid_item_uuid AND pi.user_id = $1::uuid
+          )
+        )
+        AND ($2::date IS NULL OR t.date >= $2::date)
+        AND ($3::date IS NULL OR t.date <= $3::date)
+        AND ($4::uuid IS NULL OR t.bank_account_id = $4::uuid)
+        AND ($5::text IS NULL OR t.source::text = $5)
+      ORDER BY t.date DESC, t.created_at DESC
+      LIMIT $6
+    `;
+
+    try {
+      const result = await pool.query(sql, [
+        params.userId,
+        params.startDate,
+        params.endDate,
+        params.bankAccountId,
+        params.source,
+        params.limit,
+      ]);
+      return result.rows as TransactionListRow[];
+    } catch (error) {
+      throw new QueryError("Failed to list transactions for user", {
+        userId: params.userId,
+        cause: error,
+      });
+    }
+  },
 };

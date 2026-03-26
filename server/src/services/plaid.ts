@@ -160,10 +160,26 @@ export const PlaidService = {
     }
   },
 
-  syncAccounts: async (plaidId: string) => {
-    const accounts = await PlaidService.fetchPlaidItemAccounts(plaidId)
+  syncAccounts: async (plaidId: string, userId: string) => {
+    if (!plaidId || plaidId.trim() === "") {
+      throw new ValidationError("Invalid plaid ID", { plaidId });
+    }
+    if (!userId || userId.trim() === "") {
+      throw new ValidationError("Invalid user ID", { userId });
+    }
 
-    const accountsForUpsert = accounts.map(account => ({
+    const plaidItem = await PlaidItemModel.findById(plaidId);
+    if (!plaidItem) {
+      throw new NotFoundError("PlaidItem", plaidId);
+    }
+    if (plaidItem.user_id !== userId) {
+      throw new ForbiddenError("You do not have access to this Plaid item");
+    }
+
+    const accounts = await PlaidService.fetchPlaidItemAccounts(plaidId);
+
+    const accountsForUpsert = accounts.map((account) => ({
+      userId: plaidItem.user_id,
       plaidAccountId: account.account_id,
       plaidItemId: plaidId,
       mask: account.mask ?? null,
@@ -172,12 +188,12 @@ export const PlaidService = {
       type: account.type,
       subtype: account.subtype ?? null,
       currentBalance: account.balances?.current ?? null,
-      availableBalance: account.balances?.available ?? null
-    }))
+      availableBalance: account.balances?.available ?? null,
+    }));
 
-    await BankAccountModel.bulkUpsertPlaidAccounts(accountsForUpsert)
+    await BankAccountModel.bulkUpsertPlaidAccounts(accountsForUpsert);
 
-    return accounts
+    return accounts;
   },
 
   getPlaidItemCursor: async (plaidId: string) => {

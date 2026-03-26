@@ -57,8 +57,9 @@ export const PlaidController = {
 
   syncPlaidAccounts: async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const { id: userId } = (req as AuthenticatedRequest).user;
       const { plaidId } = req.params as { plaidId: string };
-      const accounts = await PlaidService.syncAccounts(plaidId);
+      const accounts = await PlaidService.syncAccounts(plaidId, userId);
       return res.status(200).json(accounts);
     } catch (error) {
       next(error)
