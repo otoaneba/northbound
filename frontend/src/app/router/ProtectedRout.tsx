@@ -6,10 +6,10 @@ type ProtectedRouteProps = {
 };
 
 function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const isAuthenticated = false;
+  const isAuthenticated = localStorage.getItem('token');
 
   if (!isAuthenticated) {
-    return <Navigate to="/login"></Navigate>
+    return <Navigate to="/login" state={{ from: 'protected' }} replace></Navigate>
   }
 
   return children
