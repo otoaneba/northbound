@@ -1,3 +1,11 @@
 export function AuthPage() {
-  return null;
+  return (
+    <>
+      <div>
+        <input></input>
+        <input></input>
+        <button>Log in</button>
+      </div>
+    </>
+  );
 }
