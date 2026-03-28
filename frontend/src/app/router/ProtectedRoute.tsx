@@ -9,7 +9,7 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
   const isAuthenticated = localStorage.getItem('token');
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: 'protected' }} replace></Navigate>
+    return <Navigate to="/login" state={{ from: 'protected' }} replace />
   }
 
   return children
