@@ -1,4 +1,5 @@
 import './AuthComponents.scss'
+import { AuthError } from '../errors/AuthError';
 import { login } from '../services/authService';
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -10,7 +11,7 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
     setLoading(true)
@@ -19,7 +20,10 @@ export function LoginForm() {
       await login({ email, password });
       navigate('/dashboard');
     } catch (err) {
-      if (err instanceof Error) {
+      console.log(err)
+      if (err instanceof AuthError) {
+        setError(err.message);
+      } else if (err instanceof Error) {
         setError(err.message);
       } else {
         setError('Something went wrong');
