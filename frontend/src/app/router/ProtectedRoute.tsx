@@ -6,7 +6,7 @@ type ProtectedRouteProps = {
 };
 
 function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const isAuthenticated = localStorage.getItem('token');
+  const isAuthenticated = localStorage.getItem(import.meta.env.VITE_AUTH_TOKEN_KEY);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: 'protected' }} replace />
